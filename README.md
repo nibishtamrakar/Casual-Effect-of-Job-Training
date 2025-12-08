@@ -66,4 +66,104 @@ ___
 
 *The primary causal effect of interest is the direct impact of job training participation on future earnings, represented by **treat → re78**. Because **re75** affects both treatment assignment and the outcome, it acts as a confounder. Adjusting for **re75** blocks the backdoor path between **treat** and **re78**, allowing us to identify the causal effect of job training on future earnings under the assumptions encoded in the DAG.*
 
+___
+
+## 3. Statistical Model
+
+We model **post-program earnings** in 1978 (`re78`) on the log scale to account for non-negativity and right-skewness. Let $Y_i = \text{re78}_i$ denote earnings in 1978 for individual $i$, and let $\text{treat}_i$ and $\text{re75}_i$ denote treatment status and prior earnings in 1975, respectively.
+
+We assume the following statistical model:
+
+$$
+\log(Y_i + 1) \sim \text{Normal}(\mu_i, \sigma)
+$$
+
+$$
+\mu_i = \alpha + \tau \cdot \text{treat}_i + \beta \cdot \log(1 + \text{re75}_i)
+$$
+
+where:
+- $\alpha$ is the intercept,
+- $\tau$ captures the causal effect of job training participation on (log) future earnings, after adjusting for prior earnings,
+- $\beta$ measures the association between prior earnings and future earnings on the log scale.
+
+We place the following priors on the parameters:
+
+$$
+\alpha \sim \text{Normal}(0, 5)
+$$
+
+$$
+\tau \sim \text{Normal}(0, 5)
+$$
+
+$$
+\beta \sim \text{Normal}(0, 5)
+$$
+
+$$
+\sigma \sim \text{Half-Cauchy}(0, 2)
+$$
+
+---
+
+### 3.1. Justification of Priors
+
+The priors are chosen to be **weakly informative**, reflecting plausible ranges for effects while allowing the data to play the dominant role:
+
+- The parameters $\alpha$, $\tau$, and $\beta$ are given $\text{Normal}(0, 5)$ priors.  
+  On the log-earnings scale, a change of 5 units corresponds to a very large multiplicative change in earnings (e.g., $\exp(5) \approx 148$), so these priors are intentionally wide. This ensures we are not tightly constraining the regression coefficients while still discouraging extremely large, implausible values.
+
+- The residual standard deviation $\sigma$ is given a $\text{Half-Cauchy}(0, 2)$ prior, a common weakly informative prior for scale parameters. It favors smaller values of $\sigma$ while still allowing for moderately large residual variation if supported by the data.
+
+Overall, these priors encode the belief that:
+1. Effects are likely to be centered near zero on the log scale (no strong prior belief about large positive or negative effects), and  
+2. The model allows enough flexibility to fit realistic earnings patterns without over-regularizing.
+
+---
+
+### 3.2. Justification of Outcome Distribution
+
+Raw earnings (`re78`) are:
+- **Non-negative**,  
+- **Right-skewed**, with a small number of individuals earning much more than the median, and  
+- Sometimes equal to zero.
+
+To address these characteristics, we model $\log(Y_i + 1)$ rather than $Y_i$ directly:
+
+- The log transformation reduces right skew and makes the distribution of transformed earnings closer to symmetric and approximately Normal.
+- Adding 1 inside the log, $\log(Y_i + 1)$, allows us to handle individuals with zero earnings without discarding them or requiring a separate model.
+- On the transformed scale, it is reasonable to assume approximately constant variance and a Normal error distribution, which justifies the Normal likelihood:
+  $$
+  \log(Y_i + 1) \sim \text{Normal}(\mu_i, \sigma).
+  $$
+
+Thus, the Normal distribution is used not for raw earnings, but for their log-transformed values, which better match the assumptions of the statistical model.
+
+
+---
+
+### 3.3. Handling the Confound
+
+Our causal DAG indicates that prior earnings in 1975 (`re75`) act as a **confounder**, affecting both:
+
+- The probability of participating in the job training program (`treat`), and  
+- Future earnings in 1978 (`re78`).
+
+In the statistical model, we handle this confounding by **conditioning on `re75`** through its log-transformed version:
+
+$$
+\mu_i = \alpha + \tau \cdot \text{treat}_i + \beta \cdot \log(1 + \text{re75}_i).
+$$
+
+Including $\log(1 + \text{re75}_i)$ in the regression:
+
+- Blocks the backdoor path $\text{treat} \leftarrow \text{re75} \rightarrow \text{re78}$,  
+- Ensures that the estimated coefficient $\tau$ reflects the effect of job training on future earnings **after adjusting for differences in baseline earnings**, and  
+- Aligns directly with the causal model specified in the DAG.
+
+Under the assumptions encoded in the DAG (no unmeasured confounding beyond `re75`, correct model specification, and appropriate temporal ordering), the posterior for $\tau$ can be interpreted as a **causal effect** of job training on log-transformed future earnings, conditional on prior earnings.
+
+___
+
 
